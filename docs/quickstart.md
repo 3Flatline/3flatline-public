@@ -61,3 +61,4 @@ Keep in mind that each run of the CLI requires authentication.  The CLI will mai
 - Jobs are retrieved by providing a task UUID, and this can make it difficult in large numbers.  Various commands have "helper tips" that are pre-formatted commands and UUIDs to make job selection easier.  For example, the `create_task` command will output a list of the created task UUIDs to copy/paste in future commands.  The `status` command will also output a list of every included UUID that was listed using that command.
 - If you have written a custom integration or adjusted the CLI in a helpful way, please submit a pull request directly to this repository, and we will review it!
 - 3Flatline is run by real people who are proud of what they have made. If you need assistance or have ideas for a feature, please reach out to support@3flatline.ai, and it will go to a real developer who can help.
+
