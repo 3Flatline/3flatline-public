@@ -108,7 +108,7 @@ To create multiple jobs from the cli, quote the individual commands you would li
 ```python3 3flatline-cli-cmd2.py "authenticate -u aaron@3flatline.ai -p DefNotMyPassword!" "create_task /home/user/3flatline/cli/test_file1.c" "create_task /home/user/3flatline/cli/test_file2.c"```
 
 
-Keep in mind that each run of the CLI requires authentication.  The CLI will maintain a token while it is open and will refresh your authorization before each command is run, but only if you keep the CLI open.  If the CLI is closed, you will need to re-authenticate with the server.  
+Keep in mind that each run of the CLI requires authentication.  The CLI will maintain a token while it is open and will refresh your authorization before each command is run, but only if you keep the CLI open.  If the CLI is closed, you will need to re-aauthenticate with the server.  
 
 ## Authenticate
 
