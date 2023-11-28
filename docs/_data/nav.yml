@@ -1,12 +1,10 @@
-- title: "Home"
-  href: "/"
-
-- title: "News"
-  href: "/news/"
-
-- title: "Snippets"
-  subcategories:
-    - subtitle: "Example1"
-      subhref: "#"
-    - subtitle: "Example2"
-      subhref: "#"
+# main links
+main:
+  - title: "Home"
+    url: /index.html
+  - title: "Teaching"
+    url: /teaching/
+  - title: "Downloads"
+    url: /year-archive/
+  - title: "Quick-Start Guide"
+    url: https://mmistakes.github.io/minimal-mistakes/docs/quick-start-guide/
