@@ -1,5 +1,5 @@
 title: 3Flatline Documentation
-theme: jekyll-theme-just-the-docs
+theme: jekyll-theme-minimal
 description: Documentation for the 3Flatline Dixie code scanner.
 logo: /_includes/logo.svg
 show_downloads: false
