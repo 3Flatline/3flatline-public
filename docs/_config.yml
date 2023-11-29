@@ -22,7 +22,7 @@ subtitle                 : "Documentation for the 3Flatline Dixie vulnerability 
 name                     : "3Flatline"
 description              : "Documentation for the 3Flatline Dixie vulnerability scanner."
 url                      : "https://docs.3flatline.ai"
-baseurl                  : "https://github.com/3Flatline/3flatline-public"
+baseurl                  : # Don't use with url
 repository               : # GitHub username/repo-name e.g. "mmistakes/minimal-mistakes"
 teaser                   : # path of fallback teaser image, e.g. "/assets/images/500x300.png"
 logo                     : "/assets/img/logo.png"
