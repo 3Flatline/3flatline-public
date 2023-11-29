@@ -28,7 +28,6 @@ Note: The CLI will require you to log in before you can perform any actions.
 
 ## Commands: 
 | Action | Command Example |
-|||
 | -- | -- |
 |Authenticate | `authenticate -u <username> -p <password>` |
 |Get user token allocation | `user` |
