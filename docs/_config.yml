@@ -4,3 +4,14 @@ description: Documentation for the 3Flatline Dixie code scanner.
 logo: /includes/logo.png
 show_downloads: false
 google_analytics: G-LE40Z6RBY6
+plugins:
+  - jekyll-sitemap
+  - jekyll-seo-tag
+navigation:
+  - name: Readme
+    link: ./index.html
+    sublist:
+      - name: Image
+        link: ./index.html#small-image
+  - name: Another Page
+    link: ./another-page.html
