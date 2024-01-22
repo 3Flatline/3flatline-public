@@ -6,19 +6,23 @@ from cmd2.table_creator import (
     Column,
     SimpleTable,
 )
+import datetime
+import gotrue.errors
 import hashlib
 import hmac
 import json
+import logging
 import os
 import pyfiglet
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from supabase import create_client, Client
 import sys
 import tiktoken
 from typing import List
 
-CLI_VERSION = "v1.1"
+CLI_VERSION = "v1.2"
 
 C_MODEL_ENDINGS = [
     ".c",
@@ -29,15 +33,14 @@ C_MODEL_ENDINGS = [
 APPSEC_MODEL_ENDINGS = [".php", ".go", ".py", ".rb", ".js", ".java", ".html"]
 MAX_FILE_UPLOAD_SIZE = 1024 * 1024 * 10
 # DEV
-API_URL_BASE = "https://krjndzi2kb.execute-api.us-east-1.amazonaws.com/beta/"
-APP_CLIENT_ID = "2fi0r78bti8bkbe1v15n66gh4u"
+# API_URL_BASE = "https://krjndzi2kb.execute-api.us-east-1.amazonaws.com/v1/"
 # PROD
-# API_URL_BASE = 'https://api.3flatline.ai'
-# APP_CLIENT_ID = '573488kv0r42co4tv0j8qokeko'
+API_URL_BASE = 'https://api.3flatline.ai/v1'
 
-# Only used for first beta due to mistake in cognito pool
-# CLIENT_SECRET = 'mrq02k64h4s9mjf188gs89cop49mifemmd4qmpcjpjim7a5gd5s'
-
+POSTGRES_PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1bXFwempucnFuY2pwZmRydGhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDM4NTkxMzQsImV4cCI6MjAxOTQzNTEzNH0.y0DIlnd6Eg4ZtC2ieTzoa9102klz8hkXWUjpWpMNHIs'
+POSTGRES_URL = "https://humqpzjnrqncjpfdrthq.supabase.co"
+supabase: Client = create_client(POSTGRES_URL, POSTGRES_PUBLIC_KEY)
+logging.disable(sys.maxsize)
 
 class ThreeFlatlineCLIApp(cmd2.Cmd):
     auth_parser = cmd2.Cmd2ArgumentParser()
@@ -94,11 +97,11 @@ class ThreeFlatlineCLIApp(cmd2.Cmd):
     """A simple cmd2 application."""
 
     def __init__(self):
-        ascii_banner = pyfiglet.figlet_format("3Flatline CLI")
-        print(f"CLI Version: {CLI_VERSION}")
-        self.auth_info = {}
-
         super().__init__()
+        ascii_banner = pyfiglet.figlet_format("3Flatline CLI")
+        self.poutput(f"CLI Version: {CLI_VERSION}")
+        self.auth_info = {}
+        self.register_postloop_hook(self.logout_supabase)
         self.poutput(ascii_banner)
         self.hidden_commands.append("alias")
         self.hidden_commands.append("edit")
@@ -107,6 +110,7 @@ class ThreeFlatlineCLIApp(cmd2.Cmd):
         self.hidden_commands.append("run_script")
         self.hidden_commands.append("shell")
         self.hidden_commands.append("shortcuts")
+        self.supabase = False
         self.intro = """Welcome to the 3Flatline CLI!
 
 This CLI interfaces with the 3Flatline servers to queue and retrieve analysis jobs.
@@ -134,33 +138,28 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
         # Show this as the prompt when asking for input
         self.prompt = "Dix > "
 
+    def logout_supabase(self) -> None:
+        """Log out of supabase."""
+        try:
+            self.poutput("“Miami, joeboy, quick study.”")
+
+        except Exception:
+            pass
+
     @cmd2.with_argparser(auth_parser)
     def do_authenticate(self, args):
         """Authenticate with the server using your provided credentials."""
         # Todo: timeout and reauth
-        client = boto3.client(
-            "cognito-idp",
-            region_name="us-east-1",
-            config=botocore.config.Config(signature_version=botocore.UNSIGNED),
-        )
-
-        # Used for original beta
-        # secret_hash = self.SecretHash(
-        #     APP_CLIENT_ID,
-        #     CLIENT_SECRET,
-        #     args.username
-        #     )
+        # initially set to False in init
+        self.supabase: Client = create_client(POSTGRES_URL, POSTGRES_PUBLIC_KEY)
         try:
-            resp = client.initiate_auth(
-                ClientId=APP_CLIENT_ID,
-                AuthFlow="USER_PASSWORD_AUTH",
-                AuthParameters={
-                    "USERNAME": args.username,
-                    "PASSWORD": args.password,
-                    # "SECRET_HASH": secret_hash
-                },
+            data = self.supabase.auth.sign_in_with_password(
+                {"email": args.username,
+                "password": args.password}
             )
-        except botocore.exceptions.ClientError as exc:
+            supabase.postgrest.auth(data.session.access_token)
+
+        except gotrue.errors.AuthApiError as exc:
             self.poutput(
                 f"Error encountered during login: {type(exc).__name__}: {str(exc)}"
             )
@@ -168,31 +167,12 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
                 "If this is repeated or unexpected, please contact support@3flatline.ai"
             )
             return
-        if resp.get("ChallengeName") == "NEW_PASSWORD_REQUIRED":
-            self.poutput(
-                (
-                    "* Error encountered during login. "
-                    "All new users must change passwords using the UI provided by email before using the CLI. *"
-                )
-            )
-            return
-        # self.poutput(resp)
-        id_token = resp["AuthenticationResult"]["IdToken"]
-        access_token = resp["AuthenticationResult"]["AccessToken"]
-        refresh_token = resp["AuthenticationResult"]["RefreshToken"]
-        # print(refresh_token)
-        get_user_response = client.get_user(AccessToken=access_token)
-        # Don't get excited, hackers: this is for usage tracking, not authentication
-        user_attributes = get_user_response.get("UserAttributes")
-        for attribute in user_attributes:
-            if attribute["Name"] == "custom:api-key":  # Need to watch this custom field
-                user_api_key = attribute["Value"]
-                break
+        # TODO: Check for message needing verification or password change or something.
+        access_token = data.session.access_token
+        refresh_token = data.session.refresh_token
         self.auth_info = {
-            "id_token": id_token,
-            "access_token": access_token,
+            "auth_token": access_token,
             "refresh_token": refresh_token,
-            "user_api_key": user_api_key,
         }
         self.poutput("Log in success")
 
@@ -203,45 +183,16 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
             hmac.new(key, message, digestmod=hashlib.sha256).digest()
         ).decode()
 
-    def check_auth(self):
+    def refresh_auth(self):
         """Refresh authentication with the server."""
-        client = boto3.client("cognito-idp", region_name="us-east-1")
-
-        refresh_token = self.auth_info.get("refresh_token")
-
-        if refresh_token:
-            try:
-                resp = client.initiate_auth(
-                    ClientId=APP_CLIENT_ID,
-                    AuthFlow="REFRESH_TOKEN_AUTH",
-                    AuthParameters={"REFRESH_TOKEN": refresh_token},
-                )
-                # self.poutput('Refreshed token')
-            except botocore.exceptions.ClientError as exc:
-                self.poutput(
-                    f"Error encountered during session refresh: {type(exc).__name__}: {str(exc)}"
-                )
-                self.poutput(
-                    "If this is repeated or unexpected, please contact support@3flatline.ai"
-                )
-                return False
-        else:
-            self.poutput(
-                (
-                    "There are no stored authorization tokens. "
-                    'Have you logged in using "authenticate -u <username> -p <password>?"'
-                )
-            )
-            return False
-
-        self.auth_info.update(
-            {
-                "id_token": resp["AuthenticationResult"]["IdToken"],
-                "access_token": resp["AuthenticationResult"]["AccessToken"],
-            }
-        )
-        return True
-        # print(self.auth_info)
+        if not self.supabase:
+            self.poutput("No login credentials found. Have you authenticated already?")
+            return
+        data = self.supabase.auth.refresh_session()
+        self.auth_info = {
+            "auth_token": data.session.access_token,
+            "refresh_token": data.session.refresh_token,
+        }
 
     def check_response_error(self, response, expected_code=None) -> bool:
         """Check and output information for an error repsonse."""
@@ -277,12 +228,13 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
                 )
                 self.poutput(response.content)
             return False
+        self.poutput(f"Error encountered: result status code was {response.status_code} and content {response.content}")
         return False
 
     @cmd2.with_argparser(task_parser)
-    def do_create_task(self, args) -> str:
+    def do_create_task(self, args):
         """Create a new code scanning task"""
-
+        self.refresh_auth()
         paths_to_analyze = []
         if os.path.isdir(args.filepath):
             self.poutput("Filepath provided was a directory, searching for files.")
@@ -343,8 +295,6 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
                         f"File at {entry} had unsupported file extension. Skipping."
                     )
                     continue
-                if not self.check_auth():
-                    return
                 try:
                     with open(entry, "r") as object_file:
                         encoding = tiktoken.get_encoding("cl100k_base")
@@ -360,16 +310,16 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
                 result = session.post(
                     f"{API_URL_BASE}/tasks",
                     headers={
-                        "Authorization": self.auth_info.get("id_token"),
-                        "x-api-key": self.auth_info.get("user_api_key"),
+                        "Authorization": self.auth_info.get("auth_token"),
+                        # "x-api-key": self.auth_info.get("user_api_key"),
                         "cli_version": CLI_VERSION,
                     },
                     json={
                         "filepath": entry,
-                        "models": models,
                         "token_estimate": token_estimate,
                     },
                 )
+                # self.poutput(result)
                 if (
                     result.status_code == 403
                     and "length exceeds maximum file size." in str(result.content)
@@ -379,11 +329,15 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
                     )
                     continue
                 elif not self.check_response_error(result):
+                    self.poutput("Error during task creation on AWS server.")
+                    # self.poutput(result.status_code)
+                    # self.poutput(result.content)
                     break
                 result_json = result.json()
-
-                # print(result)
-                new_task_id = result_json.get("id")
+                # body = result_json.get("body")
+                # self.poutput(body)
+                new_task_id = result_json.get("task_id")
+                signed_url = result_json.get("signed_url")
                 if not new_task_id:
                     self.poutput(f"Error uploading {entry}, task not submitted.")
                     retry_paths.append(entry)
@@ -391,17 +345,18 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
                 self.poutput(
                     f"Created task entry in database for task id: {new_task_id}, uploading for analysis."
                 )
-                converted_result = result.json()
-                s3_auth_data = converted_result["url_info"]
-                headers = s3_auth_data.get("fields")
+                # converted_result = result.json()
+                # s3_auth_data = converted_result["url_info"]
+                # headers = s3_auth_data.get("fields")
                 try:
                     with open(entry, "r") as object_file:
-                        response = session.post(
-                            s3_auth_data.get("url"),
-                            data=headers,
+                        response = session.put(
+                            signed_url,
                             files={"file": object_file},
                         )
-                        if self.check_response_error(response, expected_code=204):
+                        # self.poutput(response.status_code)
+                        # self.poutput(response.content)
+                        if self.check_response_error(response, expected_code=200):
                             self.poutput("Successfully uploaded file to server.")
                         else:
                             self.poutput(
@@ -416,6 +371,21 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
                         f"Couldn't find {entry}, verify the file exists and path is correct."
                     )
                     return
+                # Kick off analysis
+                result = requests.post(
+                        f"{API_URL_BASE}/tasks/{new_task_id}",
+                        headers={
+                            "Authorization": self.auth_info.get("auth_token"),
+                            "cli_version": CLI_VERSION,
+                        },
+                    )
+                # self.poutput(result.status_code)
+                # self.poutput(result.content)
+                if not self.check_response_error(result):
+                    self.poutput("Error during activation of task.")
+                    # self.poutput(result.status_code)
+                    # self.poutput(result.content)
+                    continue
                 created_tasks.append(new_task_id)
         if not created_tasks:
             self.poutput("No tasks created.")
@@ -445,56 +415,16 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
 
         if args.search:
             result_list = []
-            with requests.session() as session:
-                retry_strategy = Retry(
-                    total=3,
-                    backoff_factor=1,
-                    status_forcelist=[502, 503, 504],
-                )
-                session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
-                for entry in args.search:
-                    self.poutput(f"Retrieving: {entry}")
-                    if not self.check_auth():
-                        return
-                    result = session.get(
-                        f"{API_URL_BASE}/tasks/{entry}",
-                        headers={
-                            "Authorization": self.auth_info.get("id_token"),
-                            "x-api-key": self.auth_info.get("user_api_key"),
-                            "cli_version": CLI_VERSION,
-                        },
-                    )
-                    # print(result.status_code)
-                    result_json = result.json()
-                    if not self.check_response_error(result):
-                        return
-                    result_list.append(result_json[0])
-
-        else:  # all
-            self.poutput("Searching for all tasks")
-            if not self.check_auth():
-                return
-            result = requests.get(
-                f"{API_URL_BASE}/tasks",
-                headers={
-                    "Authorization": self.auth_info.get("id_token"),
-                    "x-api-key": self.auth_info.get("user_api_key"),
-                    "cli_version": CLI_VERSION,
-                },
-            )
-            result_json = result.json()
-            if (
-                not isinstance(result_json, list)
-                and result_json.get("message") == "Unauthorized"
-            ):
-                self.poutput(
-                    "ERROR: received 'Unauthorized' message.  Have you authenticated to the server?"
-                )
-                self.poutput(
-                    "To authenticate try the command: authenticate -u <username> -p <password>"
-                )
-                return
-            result_list = result_json
+            length = len(args.search)
+            for i in range(0, length, 20):
+                data, count = self.supabase.table('tasks').select("*").in_('task_id', args.search[i:i+20]).execute()
+                result_list.extend(data[1])
+        else:
+            data, count = self.supabase.table('tasks').select("*").execute()
+            result_list = data[1]
+        if not result_list:
+            self.poutput("No existing tasks to pull status for.")
+            return
 
         self.poutput("Results:")
         self.poutput(json.dumps(result_list, indent=5))
@@ -515,29 +445,11 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
 
     @cmd2.with_argparser(delete_parser)
     def do_delete(self, args) -> None:
+        self.poutput(f'Deleting tasks: {args.task_ids}')
         """Delete as task from the database by task id"""
-        with requests.session() as session:
-            retry_strategy = Retry(
-                total=3,
-                backoff_factor=1,
-                status_forcelist=[502, 503, 504],
-            )
-            session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
-            for entry in args.task_ids:
-                if not self.check_auth():
-                    return
-                result = session.delete(
-                    f"{API_URL_BASE}/tasks/{entry}",
-                    headers={
-                        "Authorization": self.auth_info.get("id_token"),
-                        "x-api-key": self.auth_info.get("user_api_key"),
-                        "cli_version": CLI_VERSION,
-                    },
-                )
-                result_json = result.json()
-                if not self.check_response_error(result):
-                    return
-                self.poutput(str(json.dumps(result_json, indent=5)).strip('"'))
+        result = self.supabase.table('tasks').delete().in_('task_id', args.task_ids).execute()
+        # TODO: Add summary and error checks
+        # print(result)
 
     @cmd2.with_argparser(user_parser)
     def do_user(self, args) -> None:
@@ -549,17 +461,16 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
                 status_forcelist=[502, 503, 504],
             )
             session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
-            if not self.check_auth():
-                return
+            self.refresh_auth()
             result = session.get(
                 f"{API_URL_BASE}/user",
                 headers={
-                    "Authorization": self.auth_info.get("id_token"),
-                    "x-api-key": self.auth_info.get("user_api_key"),
+                    "Authorization": self.auth_info.get("auth_token"),
                     "cli_version": CLI_VERSION,
                 },
             )
             result_json = result.json()
+            # print(result_json)
             if not self.check_response_error(result):
                 return
             for key, value in result_json.items():
@@ -652,10 +563,10 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
                 split_description = description.split("Code Description:")
                 if len(split_description) > 1:
                     description = split_description[1]
-                bugs_dict = result_entry.get("bugs")
-                if bugs_dict:
-                    for key, value in bugs_dict.items():
-                        markdown_vuln_string+=f"{value}\n"
+                bugs_list = result_entry.get("bugs")
+                if bugs_list:
+                    for entry in bugs_list:
+                        markdown_vuln_string+=f"{entry}\n"
         markdown_string = f"""# {task_id}
 
 | Field | Content |
@@ -700,61 +611,20 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
     @cmd2.with_argparser(status_parser)
     def do_status(self, args) -> None:
         """List status of all code scanning tasks in your account (-s for search by task id)"""
+        self.refresh_auth()
         if args.search:
             result_list = []
-            with requests.session() as session:
-                retry_strategy = Retry(
-                    total=3,
-                    backoff_factor=1,
-                    status_forcelist=[502, 503, 504],
-                )
-                session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
-                for entry in args.search:
-                    self.poutput(f"Retrieving: {entry}")
-                    if not self.check_auth():
-                        return
-                    result = session.get(
-                        f"{API_URL_BASE}/tasks/{entry}",
-                        headers={
-                            "Authorization": self.auth_info.get("id_token"),
-                            "x-api-key": self.auth_info.get("user_api_key"),
-                            "cli_version": CLI_VERSION,
-                        },
-                    )
-                    result_json = result.json()
-                    if not self.check_response_error(result):
-                        return
-                    result_list.append(result_json[0])
+            length = len(args.search)
+            for i in range(0, length, 20):
+                data, count = self.supabase.table('tasks').select("task_id, filepath, created_at, status").in_('task_id', args.search[i:i+20]).execute() 
+                result_list.extend(data[1])
         else:
-            self.poutput("Searching for all task status")
-            if not self.check_auth():
-                return
-            result = requests.get(
-                f"{API_URL_BASE}/tasks",
-                headers={
-                    "Authorization": self.auth_info.get("id_token"),
-                    "x-api-key": self.auth_info.get("user_api_key"),
-                    "cli_version": CLI_VERSION,
-                },
-            )
-            result_json = result.json()
-            if (
-                not isinstance(result_json, list)
-                and result_json.get("message") == "Unauthorized"
-            ):
-                self.poutput(
-                    "ERROR: received 'Unauthorized' message.  Have you authenticated to the server?"
-                )
-                self.poutput(
-                    "To authenticate try the command: authenticate -u <username> -p <password>"
-                )
-                return
-            result_list = result_json
-
+            data, count = self.supabase.table('tasks').select("task_id, filepath, created_at, status").execute()
+            result_list = data[1]
         if not result_list:
             self.poutput("No existing tasks to pull status for.")
             return
-
+        # self.poutput(result_list)
         table_data = []
         task_id_list = []
         for entry in result_list:
@@ -762,13 +632,13 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
                 continue
             table_data.append(
                 [
-                    entry.get("id"),
+                    entry.get("task_id"),
                     entry.get("filepath"),
-                    entry.get("created_time"),
+                    entry.get("created_at"),
                     entry.get("status"),
                 ]
             )
-            task_id_list.append(entry.get("id"))
+            task_id_list.append(entry.get("task_id"))
 
         def created_time_lambda(x):
             return x[2]
@@ -789,6 +659,16 @@ python3 3flatline-cli-cmd2.py "authenticate -u <username> -p <password>" "create
         self.poutput(
             f"Task ids from this command for use in other commands: {list_output}"
         )
+
+    def do_quit(self, *args):
+        """Exit the application"""
+        try:
+            self.supabase.auth.sign_out()
+        except AttributeError as exc:
+            pass
+
+        return super().do_quit(*args)
+
 
 
 def main():

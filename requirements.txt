@@ -4,3 +4,4 @@ cmd2
 pyfiglet
 requests
 tiktoken
+supabase
