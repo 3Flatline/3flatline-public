@@ -17,7 +17,7 @@ Account credentials are created when subscribing to a paid plan at the [3Flatlin
 Once you have credentials, the CLI can be installed by either using the Python Package Index or by directly downloading and installing the dependencies indicated in the `requirements.txt` file.  If you require additional assistance with installation see the "Installation" page from the navigation bar.
 
 PyPI: [3Flatline PyPI](https://pypi.org/project/three-flatline-cli/) or by running `pip install three-flatline-cli`.
-Direct Download:[3Flatline Direct Download](https://3flatline-cli-download.s3.amazonaws.com/3flatline-cli-1.1.1.zip)
+Direct Download:[3Flatline Direct Download](https://github.com/3Flatline/3flatline-public)
 
 ## Running the CLI
 
