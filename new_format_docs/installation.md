@@ -28,7 +28,7 @@ source /path/to/new/virtual/environment/bin/activate
 ```
 3) Download/install the CLI. It is available as a direct download or PyPI repo depending on your choice.
 
-- Direct Download: https://3flatline-cli-download.s3.amazonaws.com/3flatline-cli-1.1.1.zip
+- Github Download: https://github.com/3Flatline/3flatline-public
 Download the source file and decompress it using your desired utility.  Next, install the requirements.txt file using the following command:
 `pip install -r requirements.txt`
 When this completes, you can run the CLI using the `python` or `python3` command and then providing the path to the CLI location:
