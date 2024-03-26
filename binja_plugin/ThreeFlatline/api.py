@@ -1,4 +1,5 @@
 
+from unittest import result
 import gotrue.errors
 import logging
 import requests
@@ -8,6 +9,7 @@ from requests.packages.urllib3.util.retry import Retry
 from supabase import create_client, Client
 import sys
 import time
+import os
 # import tiktoken
 from typing import List
 import tempfile
@@ -25,7 +27,7 @@ MAX_FILE_UPLOAD_SIZE = 1024 * 1024 * 10
 # DEV
 # API_URL_BASE = "https://krjndzi2kb.execute-api.us-east-1.amazonaws.com/v1/"
 # PROD
-API_URL_BASE = 'https://api.3flatline.ai/v1'
+API_URL_BASE = 'https://api2.3flatline.ai'
 
 
 logging.disable(sys.maxsize)
@@ -64,7 +66,7 @@ class DixieAPI:
             "auth_token": access_token,
             "refresh_token": refresh_token,
         }
-        print("Log in success")
+        # print("Log in success")
 
     def refresh_auth(self):
         """Refresh authentication with the server."""
@@ -107,14 +109,14 @@ class DixieAPI:
                 )
             else:
                 print(
-                    "ERROR: Your account is not authorized to conduct this action."
+                    "ERROR: Your account is not authorized to conduct this action:"
                 )
                 print(response.content)
             return False
         print(f"Error encountered: result status code was {response.status_code} and content {response.content}")
         return False
     
-    def create_task(self, file_ptr: tempfile._TemporaryFileWrapper) -> str:
+    def create_task(self, file_ptr: tempfile._TemporaryFileWrapper, description, vulns, fixes) -> str:
         """Create a task on the server."""
         
         self.refresh_auth()
@@ -138,19 +140,24 @@ class DixieAPI:
             #         f"Couldn't find file, verify the file exists and path is correct."
             #     )
             #     return {}
+            # print("Creating task entry in database.")
             result = session.post(
                 f"{API_URL_BASE}/tasks",
                 headers={
                     "Authorization": self.auth_info.get("auth_token"),
                     # "x-api-key": self.auth_info.get("user_api_key"),
-                    "cli_version": CLI_VERSION,
+                    "cli-version": CLI_VERSION,
+                    "token-estimate": "0",
+                    "filepath": file_ptr.name,
+                    "vulns": str(vulns),
                 },
                 json={
                     "filepath": file_ptr.name,
-                    "token_estimate": 0,
+                    "token-estimate": 0,
                 },
+                # verify=False,
             )
-            # print(result)
+            # print(result.content)
             if (
                 result.status_code == 403
                 and "length exceeds maximum file size." in str(result.content)
@@ -165,10 +172,10 @@ class DixieAPI:
                 # print(result.content)
                 return {}
             result_json = result.json()
-            # body = result_json.get("body")
-            # print(body)
-            new_task_id = result_json.get("task_id")
-            signed_url = result_json.get("signed_url")
+            body = result_json.get("body")
+            # print(result_json)
+            new_task_id = body.get("task_id")
+            signed_url = body.get("signed_url")
 
             print(
                 f"Created task entry in database for task id: {new_task_id}, uploading for analysis."
@@ -206,6 +213,7 @@ class DixieAPI:
                             "Authorization": self.auth_info.get("auth_token"),
                             "cli_version": CLI_VERSION,
                         },
+                        # verify=False
                 )
             # print(result.status_code)
             # print(result.content)
@@ -216,7 +224,7 @@ class DixieAPI:
                 return {}
             print(f"Successfully activated task {new_task_id}.")
             return new_task_id
-        
+    
     def list_tasks(self, task_ids: list = [], download_path: str = "", markdown: bool = False) -> dict:
         """List all code scanning tasks in your account (-s for search by task id)"""
 
@@ -228,7 +236,7 @@ class DixieAPI:
                 for entry in api_response.data:
                     # print(entry)
                     result_status.update({entry.get('task_id'): entry})
-                print(result_status)
+                # print(result_status)
         else:
             api_response = self.supabase_client.table('tasks').select("*").execute()
             for entry in api_response.data:
@@ -245,7 +253,8 @@ class DixieAPI:
         return result_status
 
     def format_markdown(self, result_dict) -> str:
-        print("Converting to markdown.")
+        # print("Converting to markdown.")
+        # print(result_dict)
         task_id = result_dict.get("task_id")
         self.convert_list_markdown(result_dict.get("models"))
         filepath = result_dict.get("filepath")
@@ -259,19 +268,30 @@ class DixieAPI:
         if isinstance(results, list) and results:
             result_entry = results[0]
             if result_entry:
+                # Parse out description safely
                 description = result_entry.get("code_description")
-                split_description = description.split("Code Description:")
-                if len(split_description) > 1:
-                    description = split_description[1]
+                if description:
+                    # Temporary for version migration on backend
+                    try:
+                        description = description.get('description')
+                    except AttributeError:
+                        # Leave current description var as it is correct
+                        pass
+                else:
+                    description = "No description provided."
+                # description = result_entry.get("code_description").get("description")
+                # split_description = description.split("Code Description:")
+                # if len(split_description) > 1:
+                #     description = split_description[1]
                 bugs_list = result_entry.get("bugs")
                 if bugs_list:
                     for entry in bugs_list:
                         markdown_vuln_string+=f"{entry}\n"
-        markdown_string = f"""# {task_id}
+        markdown_string = f"""# {filepath.strip('.c')}
 
 | Field | Content |
 | --- | ----------- |
-| Function | {filepath} |
+| Task ID | {task_id} |
 | Task Submitted | {created_time} |
 
 ## Code Description
@@ -299,14 +319,10 @@ class DixieAPI:
         result_status = {}
         if task_ids:
             length = len(task_ids)
-            print("Length is " + str(length))
             for i in range(0, length, 20):
-                print(self.supabase_client.table('tasks').select("task_id, filepath, created_at, status").in_('task_id', task_ids[i:i+20]).execute())
                 api_response = self.supabase_client.table('tasks').select("task_id, filepath, created_at, status").in_('task_id', task_ids[i:i+20]).execute() 
                 for entry in api_response.data:
-                    print(entry)
                     result_status.update({entry.get('task_id'): entry})
-                print(result_status)
         else:
             api_response = self.supabase_client.table('tasks').select("task_id, filepath, created_at, status").execute()
             for entry in api_response.data:
@@ -334,7 +350,7 @@ class DixieAPI:
             raise Exception("Tasks did not complete in time.")    
 
     def delete_tasks(self, task_ids) -> None:
-        print(f'Deleting tasks: {task_ids}')
+        # print(f'Deleting tasks: {task_ids}')
         """Delete as task from the database by task id"""
         result = self.supabase_client.table('tasks').delete().in_('task_id', task_ids).execute()
         # TODO: Add summary and error checks

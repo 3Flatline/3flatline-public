@@ -19,30 +19,38 @@ from .api import DixieAPI
 
 class AnalysisSettings(QWidget):
     """Custom editor widget."""
-
+    # Dixie API
     dix: DixieAPI
+    # The currently focused BinaryView.
     bv: Optional[BinaryView] = None
     
+
     def __init__(self, parent: QWidget, dix: DixieAPI, bv: Optional[BinaryView]):
         QWidget.__init__(self, parent)
         layout = QVBoxLayout()
         self.setLayout(layout)
+        # The currently focused BinaryView.
         self.bv = bv
         self.dix = dix
+        # # Editor should use a monospace font
+        # self.setFont(binaryninjaui.getDefaultMonospaceFont())
+        # Create spots for settings
         refresh_button = QPushButton("Refresh Function List")
         refresh_button.clicked.connect(self.refresh_widgets)
         layout.addWidget(refresh_button)
         self.list_widget = QListWidget()
         layout.addWidget(self.list_widget)
+        self.vulns_checkbox = QCheckBox("Scan for Vulnerabilities (costs tokens, unchecked returns only descriptions)")
+        self.vulns_checkbox.setChecked(False)
+        layout.addWidget(self.vulns_checkbox)
         run_button = QPushButton("Run Analysis")
         run_button.clicked.connect(self.create_tasks)
         layout.addWidget(run_button)
-
+        # self.setWindowTitle(self.title.text())
         self.username = Settings().get_string("dixie.username") 
         self.password = Settings().get_string("dixie.password")
-        self.selected_functions = []
-        self.available_functions = []
-
+        # Function Selections to run
+        inner_box = QVBoxLayout()
         for fn in self.bv.functions:
             list_widget_item = QListWidgetItem(
                 fn.name,
@@ -50,6 +58,7 @@ class AnalysisSettings(QWidget):
             )
             list_widget_item.setFlags(list_widget_item.flags() | Qt.ItemIsUserCheckable)
             list_widget_item.setCheckState(Qt.Unchecked)
+        
 
     def clear_widgets(self):
         self.list_widget.clear()
@@ -114,8 +123,6 @@ class AnalysisSettings(QWidget):
         # TODO: Popups?
         if not self.username or not self.password:
             print("No username or password set.  Please set them in settings.")
-        if not self.selected_functions:
-            print("No functions selected.  Please select functions to analyze.")
         self.dix.authenticate(self.username, self.password)
         self.bv.begin_undo_actions()
         for tag in self.bv.tag_types:
@@ -127,15 +134,22 @@ class AnalysisSettings(QWidget):
             item = self.list_widget.item(i)
             if item.checkState() == Qt.Checked:
                 checked_functions.append(item.text())
+        if not checked_functions:
+            print("No functions selected for analysis.")
+            return
+        description = True
+        remediation = True # Coming soon!
+        vulns = False
+        if self.vulns_checkbox.isChecked():
+            vulns = True
 
         for fn in self.bv.functions:
             if fn.name in checked_functions:
                 with tempfile.NamedTemporaryFile() as fp:
-                    print(fn.name)
                     fp.name = fn.name + '.c'
                     fp.write(bytes(self.c_source(self.bv, fn), 'utf8'))
                     fp.write(b'')
-                    task_id = self.dix.create_task(fp)
+                    task_id = self.dix.create_task(fp, description, vulns, remediation)
                     print(f"Created task {task_id}")
         self.bv.undo()
         self.dix.sign_out()
