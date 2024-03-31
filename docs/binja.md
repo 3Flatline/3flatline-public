@@ -5,7 +5,7 @@ The Dixie Binary Nina plugin is one method of leveraging the Dixie AppSec Engine
 For a quick overview of the functionality of the plugin please watch this video (note: this was recorded in the old "dock" method in Binary Ninja, but the plugin has since been updated to the "sidebar"): 
 https://www.youtube.com/watch?v=7IEUEgoZC9Q
 
-![Binary Ninja Plugin]("https://docs.3flatline.ai/includes/binja_screenshot.png")
+![Binary Ninja Plugin](https://docs.3flatline.ai/includes/binja_screenshot.png)
 
 **Note 1: use of the plugin requires a subscription to the Dixie platform.**
 
@@ -17,7 +17,7 @@ https://www.youtube.com/watch?v=7IEUEgoZC9Q
 
 The Binary Ninja plugin can be installed by using the Binary Ninja native Plugin Manager. The name of the plugin to search for is "Dixie":
 
-![Screenshot of Binja Plugin Manager]("https://docs.3flatline.ai/includes/binja_plugin_manager.png")
+![Screenshot of Binja Plugin Manager](https://docs.3flatline.ai/includes/binja_plugin_manager.png)
 
 For details on installing binary ninja extensions see the Binary Ninja wiki here: https://docs.binary.ninja/guide/plugins.html
 
@@ -29,13 +29,14 @@ Credentials for the Dixie engine are required before using the Binary Ninja plug
 
 Once you have purchased a subscription and created credentials for the engine you will need to store them in the Binary Ninja settings:
 
-![Binary Ninja Settings for Dixie]("https://docs.3flatline.ai/includes/binja_settings.png")
+![Binary Ninja Settings for Dixie](https://docs.3flatline.ai/includes/binja_settings.png)
 
 ## Using the Plugin
 
 The Binary Ninja plugin is a direct interface with the Dixie engine and has similar functionality to the CLI. To activate the plugin in Binary Ninja click the capital "D" on the right sidebar (or elsewhere if you have moved it).
 
 Icon:
+
 ![Dixie Plugin Activate Button](https://docs.3flatline.ai/includes/binja_activate.png)
 
 This will activate the plugin and allow you to begin using the functionality.

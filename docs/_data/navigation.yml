@@ -8,6 +8,8 @@ main:
     url: /installation/
   - title: "Commands"
     url: /commands/
+  - title: "Binary Ninja Plugin"
+    url: /binja/
   # - title: "Sitemap"
   #   url: /sitemap/
 
