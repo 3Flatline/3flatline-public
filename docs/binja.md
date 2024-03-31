@@ -5,7 +5,7 @@ The Dixie Binary Nina plugin is one method of leveraging the Dixie AppSec Engine
 For a quick overview of the functionality of the plugin please watch this video: 
 https://www.youtube.com/watch?v=7IEUEgoZC9Q
 
-![]("../includes/binja_screenshot.png")
+![]("/includes/binja_screenshot.png")
 
 <iframe width="560" height="315" src="https://www.youtube.com/embed/7IEUEgoZC9Q?si=GR2n--D91FaBjA4a" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
@@ -17,4 +17,4 @@ https://www.youtube.com/watch?v=7IEUEgoZC9Q
 
 The Binary Ninja plugin can be installed by using the Binary Ninja native Plugin Manager. The name of the plugin to search for is "Dixie":
 
-![Screenshot of Binja Plugin Manager]("../includes/binja_plugin_manager.png")
+![Screenshot of Binja Plugin Manager]("includes/binja_plugin_manager.png")
