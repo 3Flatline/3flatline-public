@@ -29,3 +29,5 @@ side:
     url: /installation/
   - title: "Commands"
     url: /commands/
+  -title: "Binary Ninja Plugin"
+    url: /binja/
