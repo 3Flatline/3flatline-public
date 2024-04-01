@@ -1,6 +1,6 @@
 # AI Vulnerability Researcher - Binary Ninja Plugin
 
-The Dixie Binary Nina plugin is one method of leveraging the Dixie AppSec Engineer platform and provides descriptions and vulnerbility detection for decompiled code. The integration leverages the combination of the Dixie engine's superior vulnerability scanning capability for the C programming language and the Binary Ninja psuedo-C decompilation output.
+The Dixie Binary Ninja plugin is one method of leveraging the Dixie AppSec Engineer platform and provides descriptions and vulnerbility detection for decompiled code. The integration leverages the combination of the Dixie engine's superior vulnerability scanning capability for the C programming language and the Binary Ninja psuedo-C decompilation output.
 
 For a quick overview of the functionality of the plugin please watch this video (note: this was recorded in the old "dock" method in Binary Ninja, but the plugin has since been updated to the "sidebar"): 
 https://www.youtube.com/watch?v=7IEUEgoZC9Q
@@ -9,7 +9,7 @@ https://www.youtube.com/watch?v=7IEUEgoZC9Q
 
 **Note 1: use of the plugin requires a subscription to the Dixie platform.**
 
-**Note 2: There is a subscription level specifically for the Binary Ninjda plugin. While this may provide some level of CLI access initially, this will not be the case in subsequent versions. Users desiring CLI access should purchase other plans.**
+**Note 2: There is a subscription level specifically for the Binary Ninja plugin. While this may provide some level of CLI access initially, this will not be the case in subsequent versions. Users desiring CLI access should purchase other plans.**
 
 **Note 3: THE DIXIE ENGINE DELETES RESULTS FROM THE SERVER AFTER SEVEN DAYS, SO WE STRONGLY ENCOURAGE YOU TO SYNC RESULTS LOCALLY ONCE ANALYSIS IS COMPLETE**
 
