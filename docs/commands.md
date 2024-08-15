@@ -22,6 +22,8 @@ Examples of the main commands are:
     Get user token limits: 'user'
     Estimate token cost: 'estimate <file or directory path for analysis>'
     Create a job: 'create_task <file or directory path for analysis>'
+    Generate fixes for vulns: 'create_task -f <file or directory path for analysis>'
+    Generate tests for vulns: 'create_task -t <file or directory path for analysis>'
     Show the status of all tasks created: 'status'
     Show a specific job('s) status: 'status -s <task id> <task id> ...'
     List all jobs you have created and their result data: 'list'
@@ -178,6 +180,8 @@ Total estimated token cost for ../3flatline-demo-files: 17817
 
 The `create_task` command is used to start an analysis task.  The required filepath parameter can be either a absolute or relative path to the desired file or directory.  In the event you pass a directory path, the CLI will navigate the path and submit tasks for each supported file type found while traversing the directory.
 
+The default behavior is to only create tasks that find vulnerabilities.  If you would also like to generate fixes for vulnerabilities that are found, and/or test code that demonstrates how to determine how the vulnerability can be triggered, the `-f` and `-t` flags can be used.
+
 ```Dix > create_task -h
 Usage: create_task [-h] filepath
 
@@ -187,7 +191,9 @@ positional arguments:
   filepath    Filepath to upload for scan
 
 optional arguments:
-  -h, --help  show this help message and exit
+  -h, --help   show this help message and exit
+  -f, --fixes  Include fixes in scan
+  -t, --tests  Include tests in scan
 ```
 
 After the command is run, the output will summarize the task IDs for each task for us in later commands.
